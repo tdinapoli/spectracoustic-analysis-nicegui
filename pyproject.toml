@@ -1,5 +1,5 @@
 [project]
-name = "spectracoustic-gui"
+name = "spectracoustic-analysis-nicegui"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -10,7 +10,7 @@ requires-python = ">=3.12"
 dependencies = []
 
 [project.scripts]
-spectracoustic-gui = "spectracoustic_gui:main"
+spectracoustic-analysis-nicegui = "spectracoustic_analysis_nicegui:main"
 
 [build-system]
 requires = ["uv_build>=0.9.17,<0.10.0"]
@@ -18,20 +18,17 @@ build-backend = "uv_build"
 
 [tool.pixi.workspace]
 channels = ["conda-forge"]
-platforms = ["linux-64", "win-64"]
+platforms = ["linux-64", "win-64", "osx-arm64"]
 
 [tool.pixi.dependencies]
 nicegui = "*"
 
 [tool.pixi.pypi-dependencies]
-spectracoustic-gui = { path = ".", editable = true }
-photoacoustic = { path = "../photoacoustic", editable = true }
+spectracoustic-analysis-nicegui = { path = ".", editable = true }
+spectracoustic-analysis = { path = "../analysis", editable = true }
 
 [tool.pixi.tasks]
-build = """
-uv build &&
-cd ../photoacoustic && uv build &&
-cd ../spectracoustic_gui
-"""
-pack = { depends-on = "build", cmd = "pixi-pack --ignore-pypi-non-wheel --platform win-64 --inject dist/spectracoustic_gui-0.1.0-py3-none-any.whl --inject ../photoacoustic/dist/photoacoustic-0.1.0-py3-none-any.whl --create-executable" }
+pack = 'python tools/build_pack.py'
+upload = {args = [{default="spectracoustic-analysis-nicegui-0.1.0-win-64.ps1",arg="filename"}], cmd = "curl -u \"xi95ExZ8N6KWxY3:0000\" -T dist/{{filename}} https://uni-muenster.sciebo.de/public.php/webdav/{{filename}}"}
+post = { depends-on=["pack", "upload"]}
 gui = "python src/spectracoustic_gui/gui.py"
