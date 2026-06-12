@@ -213,7 +213,7 @@ def select_page(path: str | None = None):
 def main():
     # Force native=True if you want it to open in a dedicated Chromium window
     # instead of a generic browser tab on the lab computer!
-    ui.run(title="SpectraCoustic UI", port=8080, reload=True)
+    ui.run(title="SpectraCoustic UI", port=8080, reload=False)
 
 
 if __name__ in {"__main__", "__mp_main__"}:
