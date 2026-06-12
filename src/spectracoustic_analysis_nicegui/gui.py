@@ -1,17 +1,14 @@
-import io
 import base64
-from pathlib import Path
+import io
+import pickle
 import time
+from pathlib import Path
 from typing import TypedDict, get_args
 
-from nicegui import ui, run
-
-import photoacoustic.main as pa_main
-from photoacoustic.constants import Options, PaSignal
-import matplotlib.pyplot as plt
+import spectracoustic_analysis.main as pa_main
 from matplotlib.figure import Figure
-import pickle
-
+from nicegui import run, ui
+from spectracoustic_analysis.constants import PaSignal
 
 UPDATE_PLOT_TIMER: float = 2.0
 
@@ -135,7 +132,6 @@ def root():
 
 @ui.page("/{path}")
 def select_page(path: str | None = None):
-
     analysis_dir = AnalysisDirectory(path=path or "")
 
     container_row = ui.row().classes("w-full gap-8 wrap")
