@@ -13,10 +13,6 @@ from spectracoustic_analysis.constants import PaSignal
 UPDATE_PLOT_TIMER: float = 2.0
 
 
-class AnalysisDirectory(TypedDict):
-    path: str | Path
-
-
 def get_linear_plot_if_changed(root: Path, fig_relative_path: str) -> Figure | None:
     figpath = root / fig_relative_path
 
@@ -78,18 +74,21 @@ def directory_is_valid(dir_path: str | Path) -> bool:
 # 1. FIX THE ANALYSIS FUNCTION: Run it in a separate process
 async def pa_main_wrapper(
     label: ui.label,
-    analysis_dir: AnalysisDirectory,
     linear_plot_image: ui.image,
     last_plot_image: ui.image,
 ):
     path = label.text
-    if not directory_is_valid(path):
-        return
     try:
         path = Path(path)
-        analysis_dir["path"] = path
-    except Exception as e:
-        ui.notify(e, type="negative")
+        global analysis_dir
+        analysis_dir = path
+    except ValueError as e:
+        ui.notify(
+            f"Converting {path} to path failed with error {e}. Ignoring analysis."
+        )
+        return
+
+    if not directory_is_valid(path):
         return
 
     # linear plot image timer
@@ -112,9 +111,10 @@ async def pa_main_wrapper(
     ui.notify("Analysis complete!", type="positive")
 
 
-def pa_make_done_file(analysis_dir: AnalysisDirectory):
+def pa_make_done_file():
+
     try:
-        p = Path(analysis_dir["path"]) / "done.txt"
+        p = analysis_dir / "done.txt"
         with open(p, "w") as f:
             print("done", file=f)
     except Exception as e:
@@ -130,9 +130,9 @@ def root():
     ).classes("w-full")
 
 
-@ui.page("/{path}")
+@ui.page("/")
 def select_page(path: str | None = None):
-    analysis_dir = AnalysisDirectory(path=path or "")
+    analysis_dir = path or ""
 
     container_row = ui.row().classes("w-full gap-8 wrap")
     with container_row:
@@ -195,9 +195,7 @@ def select_page(path: str | None = None):
             plots_row.set_visibility(True)
 
             # 2. Fire off the background analysis wrapper
-            await pa_main_wrapper(
-                label, analysis_dir, linear_plot_image, last_plot_image
-            )
+            await pa_main_wrapper(label, linear_plot_image, last_plot_image)
 
             plots_row.set_visibility(False)
             options_row.set_visibility(True)
@@ -207,7 +205,7 @@ def select_page(path: str | None = None):
             on_click=lambda: handle_run_click(),
         )
 
-        ui.button(text="Finish", on_click=lambda: pa_make_done_file(analysis_dir))
+        ui.button(text="Finish", on_click=lambda: pa_make_done_file)
 
 
 def main():
