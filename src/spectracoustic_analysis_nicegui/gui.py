@@ -108,11 +108,21 @@ async def pa_main_wrapper(
 
     linear_plot_timer.cancel()
     last_plot_timer.cancel()
-    ui.notify("Analysis complete!", type="positive")
+    ui.notify("Analysis terminated!", type="info")
+
+
+def pa_make_cancel_file():
+    try:
+        p = analysis_dir / "cancel.txt"
+        with open(p, "w") as f:
+            print("cancel", file=f)
+    except Exception as e:
+        ui.notify(f"Failed to create cancel file with error {e}", type="negative")
+    ui.notify("Canceling analysis", type="info")
 
 
 def pa_make_done_file():
-
+    print("making done file")
     try:
         p = analysis_dir / "done.txt"
         with open(p, "w") as f:
@@ -194,6 +204,9 @@ def select_page(path: str | None = None):
             options_row.set_visibility(False)
             plots_row.set_visibility(True)
 
+            cancel_button.enable()
+            done_button.enable()
+
             # 2. Fire off the background analysis wrapper
             await pa_main_wrapper(label, linear_plot_image, last_plot_image)
 
@@ -205,13 +218,21 @@ def select_page(path: str | None = None):
             on_click=lambda: handle_run_click(),
         )
 
-        ui.button(text="Finish", on_click=lambda: pa_make_done_file)
+        cancel_button = ui.button(
+            text="Cancel", on_click=lambda: pa_make_cancel_file()
+        ).disable()
+        done_button = ui.button(
+            text="Done", on_click=lambda: pa_make_done_file()
+        ).disable()
 
 
 def main():
     # Force native=True if you want it to open in a dedicated Chromium window
     # instead of a generic browser tab on the lab computer!
-    ui.run(title="SpectraCoustic UI", port=8080, reload=False)
+    import warnings
+
+    with warnings.catch_warnings(action="ignore"):
+        ui.run(title="SpectraCoustic UI", port=8080, reload=False)
 
 
 if __name__ in {"__main__", "__mp_main__"}:
