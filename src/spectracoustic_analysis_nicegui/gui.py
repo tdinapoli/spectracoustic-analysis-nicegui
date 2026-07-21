@@ -29,9 +29,10 @@ def get_linear_plot_if_changed(root: Path, fig_relative_path: str) -> Figure | N
         with open(figpath, "rb") as f:
             fig = pickle.load(f)
     except FileNotFoundError:
-        pass
+        return
     except Exception as e:
         ui.notify(f"Couldn't load figure with error {e}", type="negative")
+        return
     return fig
 
 
