@@ -3,14 +3,29 @@ import io
 import pickle
 import time
 from pathlib import Path
-from typing import TypedDict, get_args
+from typing import Literal, TypedDict, get_args
 
 import spectracoustic_analysis.main as pa_main
 from matplotlib.figure import Figure
 from nicegui import run, ui
-from spectracoustic_analysis.constants import PaSignal
+from spectracoustic_analysis.constants import Options, PaSignal, default_options
 
 UPDATE_PLOT_TIMER: float = 2.0
+
+
+def verify_bool(value: bool | None) -> bool | None:
+    if isinstance(value, bool):
+        return value
+
+
+def verify_float(value: float | None) -> float | None:
+    if isinstance(value, float):
+        return value
+
+
+def verify_pa_signal(value: PaSignal | None) -> PaSignal | None:
+    if value in get_args(PaSignal):
+        return value
 
 
 def get_linear_plot_if_changed(root: Path, fig_relative_path: str) -> Figure | None:
@@ -77,6 +92,7 @@ async def pa_main_wrapper(
     label: ui.label,
     linear_plot_image: ui.image,
     last_plot_image: ui.image,
+    options: Options,
 ):
     path = label.text
     try:
@@ -105,7 +121,7 @@ async def pa_main_wrapper(
 
     # run.cpu_bound drops the function into a separate process,
     # keeping the NiceGUI event loop completely free and fluid.
-    await run.cpu_bound(pa_main.main, path)
+    await run.cpu_bound(pa_main.main, path, options)
 
     linear_plot_timer.cancel()
     last_plot_timer.cancel()
@@ -158,15 +174,28 @@ def select_page(path: str | None = None):
         with options_row:
             ui.markdown("Options")
             with ui.column().classes("flex-1 items-stretch"):
-                ui.checkbox("Plot timetrace for repeats", value=True)
-                ui.checkbox("Plot nonzero intercept", value=True)
-                ui.checkbox("Plot uncertainty slope", value=False)
-                ui.checkbox("Plot uncertainty slope0", value=True)
+                opts_plot_with_intercept = ui.checkbox(
+                    "Plot nonzero intercept", value=True
+                )
+                opts_plot_uncertainty_slope = ui.checkbox(
+                    "Plot uncertainty slope", value=False
+                )
+                opts_plot_uncertainty_slope0 = ui.checkbox(
+                    "Plot uncertainty slope0", value=True
+                )
+                opts_plot_all_time_traces = ui.checkbox(
+                    "Plot all time traces", value=False
+                )
+                opts_average_measurements = ui.checkbox(
+                    "Average measurements", value=True
+                )
             with ui.column().classes("flex-1 items-stretch"):
-                ui.number("Max Energy", value=50.0)
-                ui.number("Reference alpha value", value=1.0)
-                ui.number("Threshold factor", value=2.0)
-                ui.select(options=list(get_args(PaSignal)), value="signal_delta")
+                opts_max_energy = ui.number("Max Energy", value=50.0)
+                opts_alpha_ref = ui.number("Reference alpha value", value=1.0)
+                opts_peak_threshold_factor = ui.number("Threshold factor", value=2.0)
+                opts_pa_signal = ui.select(
+                    options=list(get_args(PaSignal)), value="signal_delta"
+                )
 
         with lower_row:
             plots_row = ui.row().classes("w-full gap-4 wrap items-stretch")
@@ -200,7 +229,38 @@ def select_page(path: str | None = None):
         label = ui.label().bind_text_from(dir_path, "value")
         label.set_visibility(False)
 
+        def get_options() -> Options | None:
+            defaults = default_options()
+            values = {
+                "alpha_ref": verify_float(opts_alpha_ref.value),
+                "average_measurements": verify_bool(opts_average_measurements.value),
+                "make_single_trace_figures": verify_bool(
+                    opts_plot_all_time_traces.value
+                ),
+                "max_energy": verify_float(opts_max_energy.value),
+                "plot_uncertainty_slope": verify_bool(
+                    opts_plot_uncertainty_slope.value
+                ),
+                "plot_uncertainty_slope0": verify_bool(
+                    opts_plot_uncertainty_slope0.value
+                ),
+                "peak_threshold_factor": verify_float(opts_peak_threshold_factor.value),
+                "plot_with_intercept": verify_bool(opts_plot_with_intercept.value),
+                "pa_signal": verify_pa_signal(opts_pa_signal.value),
+            }
+            for k, v in values.items():
+                if v is None:
+                    ui.notify(f"Options value {k} should have a value", type="negative")
+                    return
+
+            return {**defaults, **values}
+
         async def handle_run_click():
+            options = get_options()
+            if options is None:
+                ui.notify("Invalid options", type="negative")
+                return
+
             # 1. Hide the options row (or settings_container, depending on which one you want to hide!)
             options_row.set_visibility(False)
             plots_row.set_visibility(True)
@@ -209,7 +269,7 @@ def select_page(path: str | None = None):
             done_button.enable()
 
             # 2. Fire off the background analysis wrapper
-            await pa_main_wrapper(label, linear_plot_image, last_plot_image)
+            await pa_main_wrapper(label, linear_plot_image, last_plot_image, options)
 
             plots_row.set_visibility(False)
             options_row.set_visibility(True)
